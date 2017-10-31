@@ -1,9 +1,11 @@
 package processing
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/pkg/errors"
 )
 
 var defaultLogPattern = regexp.MustCompile(`(?P<log_type>\S+).log(-|.)(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-(?P<extra>\d+).?(?P<compression>gz)?`)
@@ -31,16 +33,23 @@ type S3Logsync struct {
 	FilterLogTypes []string
 	// Hostname to prefix by
 	Hostname string
+	// MaxFilesToKeep is the number of files to keep if the Process
+	// is called with deleteLocal option
+	// this will strictly be last N files, whether its done hourly or not
+	MaxFilesToKeep int
 }
 
+// Process finds the rotated files, and handles the uploads,
+// if the the deleteLocalAfterUpload is true, it will delete the local files
 func (s *S3Logsync) Process(deleteLocalAfterUpload bool) error {
-	// matchPattern := defaultLogPattern
-	// if s.MatchPattern != nil {
-	// 	matchPattern = s.MatchPattern
-	// }
-	// filesMatch, err := s.Directory.LogFiles(matchPattern)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "Failed to list log files")
-	// }
+	matchPattern := defaultLogPattern
+	if s.MatchPattern != nil {
+		matchPattern = s.MatchPattern
+	}
+	filesMatch, err := s.Directory.LogFiles(matchPattern)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to list log files")
+	}
+	fmt.Printf("%#v\n", filesMatch)
 	return nil
 }

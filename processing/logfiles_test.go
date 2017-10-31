@@ -50,3 +50,15 @@ func Test_matchFileNames(t *testing.T) {
 		})
 	}
 }
+
+var samples = []string{
+	"log-cleaner.log.2017-10-11-18", "server.log.2017-10-09-18", "server.log.2017-10-19-23", "server.log.2017-10-30-04", "log-cleaner.log.2017-10-15-16", "server.log.2017-10-11-01", "server.log.2017-10-21-06", "state-change.log.2017-10-07-12",
+}
+
+// Uses the defaultLogPattern to avoid extra allocation
+func BenchmarkMatchFileNames(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		s := samples[n%len(samples)]
+		matchFileNames(s, defaultLogPattern)
+	}
+}

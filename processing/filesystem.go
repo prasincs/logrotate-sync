@@ -5,9 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -47,61 +45,24 @@ type File interface {
 // An empty Dir is treated as ".".
 type Dir string
 
-// mapDirOpenError maps the provided non-nil error from opening name
-// to a possibly better non-nil error. In particular, it turns OS-specific errors
-// about opening files in non-directories into os.ErrNotExist. See Issue 18984.
-func mapDirOpenError(originalErr error, name string) error {
-	if os.IsNotExist(originalErr) || os.IsPermission(originalErr) {
-		return originalErr
-	}
-
-	parts := strings.Split(name, string(filepath.Separator))
-	for i := range parts {
-		if parts[i] == "" {
-			continue
-		}
-		fi, err := os.Stat(strings.Join(parts[:i+1], string(filepath.Separator)))
-		if err != nil {
-			return originalErr
-		}
-		if !fi.IsDir() {
-			return os.ErrNotExist
-		}
-	}
-	return originalErr
-}
-
-func (d Dir) Open(name string) (File, error) {
-	if filepath.Separator != '/' && strings.ContainsRune(name, filepath.Separator) {
-		return nil, errors.New("logsync: invalid character in file path")
-	}
-	dir := string(d)
-	if dir == "" {
-		dir = "."
-	}
-	fullName := filepath.Join(dir, filepath.FromSlash(path.Clean("/"+name)))
-	f, err := os.Open(fullName)
-	if err != nil {
-		return nil, mapDirOpenError(err, fullName)
-	}
-	return f, nil
-}
-
-// Returns the LogFiles in the directory that match the pattern
-func (d Dir) LogFiles(matchPattern *regexp.Regexp) ([]fileMatch, error) {
+// LogFiles returns files in the directory ordered in descending order by the rotated time
+func (d Dir) LogFiles(matchPattern *regexp.Regexp) ([]FileMatch, error) {
 	fileInfos, err := ioutil.ReadDir(string(d))
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to enumerate files from %s", d)
 	}
 
-	files := []fileMatch{}
+	files := []FileMatch{}
 	for _, fileInfo := range fileInfos {
 		name := fileInfo.Name()
 		if matchPattern.MatchString(name) {
-			files = append(files, fileMatch{
-				path:    path.Join(string(d), name),
-				matches: matchFileNames(name, matchPattern),
-			})
+			fm, err := NewFileMatch(path.Join(string(d), name), matchFileNames(name, matchPattern))
+			if err != nil {
+				// Usually we don't care
+				//log.Printf("Failed to match file %s", name)
+				continue
+			}
+			files = append(files, *fm)
 		}
 	}
 	return files, nil

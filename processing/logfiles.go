@@ -9,18 +9,34 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LogSync Interfface to use for uploading to different services
+// Logsync Interfface to use for uploading to different services
 type Logsync interface {
 	Process(bool) error
 }
 
-type fileMatch struct {
-	path    string
-	matches map[string]string
+// FileMatch is used to keep track of path, matched strings, and rotated Time
+type FileMatch struct {
+	path        string
+	matches     map[string]string
+	rotatedTime time.Time
+}
+
+func NewFileMatch(path string, matches map[string]string) (*FileMatch, error) {
+	f := &FileMatch{
+		path:    path,
+		matches: matches,
+	}
+
+	tm, err := f.ParseTime()
+	if err != nil {
+		return f, errors.Wrapf(err, "Failed to parse rotated time for %s", path)
+	}
+	f.rotatedTime = tm
+	return f, nil
 }
 
 // Parse the Key from matches
-func (f *fileMatch) parseInt(key string) (int, error) {
+func (f *FileMatch) parseInt(key string) (int, error) {
 	extras, ok := f.matches[key]
 	if !ok {
 		return -1, fmt.Errorf("No field(%s) matched, unexpected filename %s", key, f.path)
@@ -32,12 +48,12 @@ func (f *fileMatch) parseInt(key string) (int, error) {
 	return extraInt, nil
 }
 
-// This relies on the matches map containing
+// ParseTime relies on the matches map containing
 // year, month, day and extras field
 // if extras can be parsed as Unix timestamp, that's picked
 // otherwise the last field is checked if it's an 0 <= hour <= 23
 // the time is constructed if
-func (f *fileMatch) ParseTime() (time.Time, error) {
+func (f *FileMatch) ParseTime() (time.Time, error) {
 	extraInt, err := f.parseInt("extra")
 	if err != nil {
 		return time.Time{}, errors.Wrapf(err, "Failed to parse for extra")
@@ -57,14 +73,14 @@ func (f *fileMatch) ParseTime() (time.Time, error) {
 	if extraInt >= 0 && extraInt <= 23 {
 		hour := extraInt
 		return time.Date(year, time.Month(month), day, hour, 0, 0, 0, time.UTC), nil
-	} else {
-		// assume it's unix time
-		tm := time.Unix(int64(extraInt), 0)
-		if tm.Year() != year || tm.Month() != time.Month(month) || tm.Day() != day {
-			return time.Time{}, errors.Wrapf(err, "Unix time doesn't match the Y/M/D, probably invalid file pattern")
-		}
-		return tm, nil
 	}
+	// assume it's unix time
+	tm := time.Unix(int64(extraInt), 0)
+	if tm.Year() != year || tm.Month() != time.Month(month) || tm.Day() != day {
+		return time.Time{}, errors.Wrapf(err, "Unix time doesn't match the Y/M/D, probably invalid file pattern")
+	}
+	return tm, nil
+
 }
 
 func matchFileNames(name string, matchPattern *regexp.Regexp) map[string]string {
