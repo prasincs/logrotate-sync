@@ -10,7 +10,7 @@ jobs:
       - checkout
       - run: go version
       - run: mkdir -p $TEST_RESULTS
-      - run: go get github.com/go-junit-report
+      - run: go get github.com/jstemmer/go-junit-report
       - run:
           name: Run unit tests
           command: |
