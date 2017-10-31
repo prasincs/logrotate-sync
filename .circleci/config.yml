@@ -3,9 +3,10 @@ jobs:
   build:
     working_directory: /go/src/github.com/prasincs/logrotate-sync
     docker:
-      - image: circle/golang:1.9.2
+      - image: circle/golang:1.9
     steps:
       - checkout
+      - run: go version
       - run: mkdir -p $TEST_RESULTS
       - run: go get github.com/go-junit-report
       - run:
