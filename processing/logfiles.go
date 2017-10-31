@@ -21,6 +21,7 @@ type FileMatch struct {
 	rotatedTime time.Time
 }
 
+// NewFileMatch takes the path and the matched map, and parses the timestamp from the matches
 func NewFileMatch(path string, matches map[string]string) (*FileMatch, error) {
 	f := &FileMatch{
 		path:    path,
