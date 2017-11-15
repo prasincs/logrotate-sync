@@ -49,6 +49,10 @@ func (f *FileMatch) parseInt(key string) (int, error) {
 	return extraInt, nil
 }
 
+func (f *FileMatch) Path() string {
+	return f.path
+}
+
 // ParseTime relies on the matches map containing
 // year, month, day and extras field
 // if extras can be parsed as Unix timestamp, that's picked
